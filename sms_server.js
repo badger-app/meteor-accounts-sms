@@ -30,6 +30,7 @@ Accounts.registerLoginHandler('sms', function (options) {
  * @param {String} options.twilio.from The phone number to send sms from.
  * @param {String} options.twilio.sid The twilio sid to use to send sms.
  * @param {String} options.twilio.token The twilio token to use to send sms.
+ * @param {String} options.twilio.premiumLookup use twilio premium carrier lookup
  * @param {Function} [options.sendVerificationCode] (phone)
  * Given a phone number, send a verification code.
  * @param {Function} [options.verifyCode] (phone, code)
@@ -42,7 +43,8 @@ Accounts.sms.configure = function (options) {
       twilio: {
         from: String,
         sid: String,
-        token: String
+        token: String,
+        premiumLookup: Match.Optional(Boolean)
       }
     }, {
       lookup: MatchEx.Function(),
@@ -52,7 +54,7 @@ Accounts.sms.configure = function (options) {
   ));
 
   if (options.twilio) {
-    Accounts.sms.client = new Twilio(options.twilio);
+    Accounts.sms.client = new Twilio(_.omit(options.twilio, 'premiumLookup'));
   } else {
     Accounts.sms.lookup = options.lookup;
     Accounts.sms.sendVerificationCode = options.sendVerificationCode;
@@ -68,7 +70,10 @@ Accounts.sms.sendVerificationCode = function (phone) {
   if (!Accounts.sms.client) throw new Meteor.Error('accounts-sms has not been configured');
 
   var lookup = Accounts.sms.client.lookup(phone);
-  if (lookup.carrier.type !== 'mobile') throw new Meteor.Error('not a mobile number');
+
+  if (Accounts.sms.premiumLookup && lookup.carrier.type !== 'mobile') {
+    throw new Meteor.Error('not a mobile number');
+  }
 
   var code = Math.floor(Random.fraction() * 10000) + '';
 
